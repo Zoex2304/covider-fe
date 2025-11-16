@@ -1,12 +1,12 @@
 ﻿================================================================================
                         CODE COLLECTION REPORT
 ================================================================================
-Generated Time    : 2025-11-16 14:59:10
+Generated Time    : 2025-11-16 17:21:20
 Technology Stack  : nodejs
 Target Path       : D:\covider-fe
 Config Bypass     : False
-Total Files       : 47
-Output Location   : D:\covider-fe\docs\collection_nodejs_20251116_145910.txt
+Total Files       : 50
+Output Location   : D:\covider-fe\docs\collection_nodejs_20251116_172120.txt
 ================================================================================
 ================================================================================
 FILE: D:\covider-fe\components.json
@@ -6524,6 +6524,107 @@ export function useAdvancedAnalytics() {
 
 
 ================================================================================
+FILE: D:\covider-fe\src\features\analytics\hooks\useCountryComparison.ts
+RELATIVE PATH: src\features\analytics\hooks\useCountryComparison.ts
+================================================================================
+// ============================================================================
+// FILE: src/features/analytics/hooks/useCountryComparison.ts
+// ============================================================================
+import { useQuery } from '@tanstack/react-query';
+import { apiClient } from '@/services/api/client';
+import { API_ENDPOINTS } from '@/services/api/endpoints';
+
+// ============================================================================
+// DOMAIN TYPES
+// ============================================================================
+interface CountryComparisonData {
+  Country: string;
+  Confirmed: number;
+  Deaths: number;
+  Recovered: number;
+  Active: number;
+  CFR: number;
+  RecoveryRate: number;
+  Date: string;
+}
+
+interface ComparisonApiResponse {
+  status: string;
+  countries: string[];
+  data: CountryComparisonData[];
+}
+
+interface BarChartData {
+  country: string;
+  value: number;
+}
+
+export interface TransformedComparisonData {
+  chartData: BarChartData[];
+  snapshotDate: string | null;
+}
+
+// ============================================================================
+// DATA TRANSFORMATION SERVICE
+// Responsibility: Transform API response into chart-compatible formats
+// ============================================================================
+class ComparisonDataTransformer {
+  transformForBarChart(
+    apiData: CountryComparisonData[],
+    metric: keyof Pick<CountryComparisonData, 'Confirmed' | 'Deaths' | 'Recovered' | 'Active'>
+  ): TransformedComparisonData {
+    const chartData = apiData.map(countryData => ({
+      country: countryData.Country,
+      value: countryData[metric],
+    }));
+
+    const snapshotDate = apiData.length > 0 ? apiData[0].Date : null;
+
+    return {
+      chartData,
+      snapshotDate,
+    };
+  }
+}
+
+// ============================================================================
+// CUSTOM HOOK
+// Responsibility: Fetch and transform country comparison data
+// ============================================================================
+export function useCountryComparison(
+  countries: string[],
+  metric: 'Confirmed' | 'Deaths' | 'Recovered' | 'Active'
+) {
+  const transformer = new ComparisonDataTransformer();
+
+  return useQuery<TransformedComparisonData>({
+    queryKey: ['comparison', countries, metric],
+    queryFn: async () => {
+      // Build query string
+      const queryString = countries.map(c => `countries=${c}`).join('&');
+      
+      // Fetch data
+      const response = await apiClient.get<ComparisonApiResponse>(
+        `${API_ENDPOINTS.COMPARE_COUNTRIES}?${queryString}`
+      );
+
+      // DEBUG: Log raw API response
+      console.log('ðŸ” useCountryComparison - Full Response:', response);
+      console.log('ðŸ” useCountryComparison - response.data:', response.data);
+      console.log('ðŸ” useCountryComparison - response.data.data:', response.data.data);
+
+      // Transform for bar chart (response.data is the API response object)
+      const transformed = transformer.transformForBarChart(response.data.data, metric);
+      
+      // DEBUG: Log transformed data
+      console.log('ðŸ” useCountryComparison - Transformed:', transformed);
+      
+      return transformed;
+    },
+    enabled: countries.length > 0,
+  });
+}
+================================================================================
 FILE: D:\covider-fe\src\features\analytics\hooks\useGeographicalData.ts
 RELATIVE PATH: src\features\analytics\hooks\useGeographicalData.ts
 ================================================================================
@@ -6549,6 +6650,130 @@ export function useGeographicalData(
   });
 }
 
+================================================================================
+FILE: D:\covider-fe\src\features\analytics\hooks\usePredictionData.ts
+RELATIVE PATH: src\features\analytics\hooks\usePredictionData.ts
+================================================================================
+// ============================================================================
+// FILE: src/features/analytics/hooks/usePredictionData.ts
+// ============================================================================
+import { useQuery } from '@tanstack/react-query';
+import { apiClient } from '@/services/api/client';
+import { API_ENDPOINTS } from '@/services/api/endpoints';
+
+// ============================================================================
+// DOMAIN TYPES
+// ============================================================================
+interface PredictionApiResponse {
+  status: string;
+  country: string;
+  days_predicted: number;
+  historical_data?: Record<string, number>; // âœ… NEW: Optional for backward compatibility
+  predictions: Record<string, number>;
+  last_actual_date: string;
+  last_actual_value: number;
+}
+
+interface ChartDataPoint {
+  date: string;
+  actual?: number;
+  predicted?: number;
+}
+
+export interface TransformedPredictionData {
+  chartData: ChartDataPoint[];
+  lastActualDate: string;
+  lastActualValue: number;
+  country: string;
+}
+
+// ============================================================================
+// DATA TRANSFORMATION SERVICE
+// Responsibility: Transform prediction API response into chart format
+// ============================================================================
+class PredictionDataTransformer {
+  transform(apiData: PredictionApiResponse): TransformedPredictionData {
+    const chartData = this.buildChartData(apiData);
+
+    return {
+      chartData,
+      lastActualDate: apiData.last_actual_date,
+      lastActualValue: apiData.last_actual_value,
+      country: apiData.country,
+    };
+  }
+
+  private buildChartData(apiData: PredictionApiResponse): ChartDataPoint[] {
+    const points: ChartDataPoint[] = [];
+
+    // âœ… Add all historical data if available
+    if (apiData.historical_data && Object.keys(apiData.historical_data).length > 0) {
+      // Sort dates to ensure chronological order
+      const sortedHistorical = Object.entries(apiData.historical_data)
+        .sort(([dateA], [dateB]) => dateA.localeCompare(dateB));
+      
+      sortedHistorical.forEach(([dateStr, value]) => {
+        const cleanDate = this.formatDate(dateStr);
+        points.push({
+          date: cleanDate,
+          actual: value,
+          predicted: undefined,
+        });
+      });
+    } else {
+      // Fallback: Add only last actual point
+      points.push({
+        date: apiData.last_actual_date,
+        actual: apiData.last_actual_value,
+        predicted: undefined,
+      });
+    }
+
+    // âœ… Add predicted points (also sorted)
+    const sortedPredictions = Object.entries(apiData.predictions)
+      .sort(([dateA], [dateB]) => dateA.localeCompare(dateB));
+    
+    sortedPredictions.forEach(([dateStr, value]) => {
+      const cleanDate = this.formatDate(dateStr);
+      points.push({
+        date: cleanDate,
+        actual: undefined,
+        predicted: value,
+      });
+    });
+
+    return points;
+  }
+
+  private formatDate(isoDate: string): string {
+    // Convert "2021-05-30T00:00:00" to "2021-05-30"
+    return isoDate.split('T')[0];
+  }
+}
+
+// ============================================================================
+// CUSTOM HOOK
+// Responsibility: Fetch and transform prediction data
+// ============================================================================
+export function usePredictionData(country: string, days: number = 7) {
+  const transformer = new PredictionDataTransformer();
+
+  return useQuery<TransformedPredictionData>({
+    queryKey: ['prediction', country, days],
+    queryFn: async () => {
+      const response = await apiClient.get<PredictionApiResponse>(
+        API_ENDPOINTS.COUNTRY_PREDICTION(country),
+        { params: { days } }
+      );
+
+      // Transform data
+      const transformed = transformer.transform(response.data);
+      
+      return transformed;
+    },
+    enabled: !!country,
+  });
+}
 ================================================================================
 FILE: D:\covider-fe\src\features\analytics\hooks\usePredictions.ts
 RELATIVE PATH: src\features\analytics\hooks\usePredictions.ts
@@ -6602,6 +6827,113 @@ export function useTimeSeriesData(country?: string) {
   });
 }
 
+================================================================================
+FILE: D:\covider-fe\src\features\analytics\services\ComparisonDataTransformer.ts
+RELATIVE PATH: src\features\analytics\services\ComparisonDataTransformer.ts
+================================================================================
+// ============================================================================
+// FILE: src/features/analytics/services/ComparisonDataTransformer.ts
+// ============================================================================
+
+// ============================================================================
+// DOMAIN TYPES
+// ============================================================================
+interface CountryComparisonData {
+  Country: string;
+  Confirmed: number;
+  Deaths: number;
+  Recovered: number;
+  Active: number;
+  CFR: number;
+  RecoveryRate: number;
+  Date: string;
+}
+
+interface BarChartData {
+  country: string;
+  value: number;
+}
+
+interface TransformedComparisonData {
+  chartData: BarChartData[];
+  snapshotDate: string | null;
+}
+
+// ============================================================================
+// DATA TRANSFORMATION SERVICE
+// Responsibility: Transform API response into chart-compatible formats
+// 
+// Design Principles Applied:
+// - Single Responsibility: Only handles data transformation
+// - Open/Closed: Easy to extend with new transformation methods
+// - Dependency Inversion: Operates on abstractions (interfaces)
+// ============================================================================
+export class ComparisonDataTransformer {
+  /**
+   * Transform API response for BarChart consumption
+   * 
+   * @param apiData - Raw API response data
+   * @param metric - The metric to extract (Confirmed, Deaths, etc.)
+   * @returns Transformed data with chartData and metadata
+   */
+  transformForBarChart(
+    apiData: CountryComparisonData[],
+    metric: keyof Pick<CountryComparisonData, 'Confirmed' | 'Deaths' | 'Recovered' | 'Active'>
+  ): TransformedComparisonData {
+    const chartData = this.extractMetricValues(apiData, metric);
+    const snapshotDate = this.extractSnapshotDate(apiData);
+
+    return {
+      chartData,
+      snapshotDate,
+    };
+  }
+
+  /**
+   * Extract metric values for each country
+   * 
+   * @private
+   * @param data - Country comparison data
+   * @param metric - Target metric
+   * @returns Array of country-value pairs
+   */
+  private extractMetricValues(
+    data: CountryComparisonData[],
+    metric: keyof Pick<CountryComparisonData, 'Confirmed' | 'Deaths' | 'Recovered' | 'Active'>
+  ): BarChartData[] {
+    return data.map(countryData => ({
+      country: countryData.Country,
+      value: countryData[metric],
+    }));
+  }
+
+  /**
+   * Extract snapshot date from data
+   * Assumes all countries have the same date (snapshot data)
+   * 
+   * @private
+   * @param data - Country comparison data
+   * @returns Snapshot date or null if no data
+   */
+  private extractSnapshotDate(data: CountryComparisonData[]): string | null {
+    if (data.length === 0) return null;
+    return data[0].Date;
+  }
+
+  /**
+   * Validate that all countries have the same date
+   * Useful for ensuring data consistency
+   * 
+   * @param data - Country comparison data
+   * @returns True if all dates match
+   */
+  validateSnapshotConsistency(data: CountryComparisonData[]): boolean {
+    if (data.length <= 1) return true;
+    
+    const firstDate = data[0].Date;
+    return data.every(item => item.Date === firstDate);
+  }
+}
 ================================================================================
 FILE: D:\covider-fe\src\features\countries\hooks\useCountryData.ts
 RELATIVE PATH: src\features\countries\hooks\useCountryData.ts

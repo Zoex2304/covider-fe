@@ -14,7 +14,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Search, ExternalLink, TrendingUp, Activity } from "lucide-react";
+import { Search, ExternalLink, TrendingUp, Activity, Users } from "lucide-react";
 import LoadingSpinner from "@/components/feedback/LoadingSpinner";
 import ErrorAlert from "@/components/feedback/ErrorAlert";
 import CountryDetailModal from "./components/CountryDetailModal";
@@ -82,64 +82,108 @@ export default function CountriesPage() {
         {filteredCountries.map((country: any) => (
           <Card
             key={country["Country/Region"]}
-            className="hover:shadow-lg transition-shadow cursor-pointer"
+            className="hover:shadow-lg transition-shadow cursor-pointer overflow-hidden relative group"
             onClick={() => handleCountryClick(country["Country/Region"])}
           >
-            <CardHeader>
-              <CardTitle className="flex items-center justify-between">
-                <span className="truncate">{country["Country/Region"]}</span>
-                <ExternalLink className="h-4 w-4 text-muted-foreground" />
-              </CardTitle>
-              <CardDescription>
-                Last updated:{" "}
-                {new Date(country.ObservationDate).toLocaleDateString()}
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <p className="text-xs text-muted-foreground">Confirmed</p>
-                  <p className="text-lg font-bold text-blue-600">
-                    {formatNumber(country.Confirmed)}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-xs text-muted-foreground">Deaths</p>
-                  <p className="text-lg font-bold text-red-600">
-                    {formatNumber(country.Deaths)}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-xs text-muted-foreground">Recovered</p>
-                  <p className="text-lg font-bold text-green-600">
-                    {formatNumber(country.Recovered)}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-xs text-muted-foreground">Active</p>
-                  <p className="text-lg font-bold text-orange-600">
-                    {formatNumber(country.Active)}
-                  </p>
-                </div>
+            {/* Background Flag Image with Gradient Overlay */}
+            {country.image_url && (
+              <div 
+                className="absolute inset-0 bg-cover bg-center z-0 transition-transform duration-300 group-hover:scale-105"
+                style={{
+                  backgroundImage: `url(${country.image_url})`,
+                }}
+              >
+                {/* Gradient Overlay - Black fade from bottom */}
+                <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/30 to-transparent" />
               </div>
+            )}
 
-              <div className="flex items-center justify-between pt-2 border-t">
-                <div className="flex items-center gap-2">
-                  <TrendingUp className="h-3 w-3 text-muted-foreground" />
-                  <span className="text-xs text-muted-foreground">CFR</span>
-                  <Badge variant="secondary">{country.CFR.toFixed(2)}%</Badge>
+            {/* Content */}
+            <div className="relative z-10 h-full flex flex-col">
+              <CardHeader className="pb-3">
+                <CardTitle className="flex items-center justify-between text-white">
+                  <span className="truncate">{country["Country/Region"]}</span>
+                  <ExternalLink className="h-4 w-4 text-white/80" />
+                </CardTitle>
+                <CardDescription className="text-white/80">
+                  Last updated:{" "}
+                  {new Date(country.ObservationDate).toLocaleDateString()}
+                </CardDescription>
+              </CardHeader>
+              
+              <CardContent className="space-y-4 flex-1">
+                {/* Main Statistics Grid */}
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="bg-white/10 backdrop-blur-sm rounded-lg p-3 text-center">
+                    <p className="text-xs text-white/80 mb-1">Confirmed</p>
+                    <p className="text-lg font-bold text-white">
+                      {formatNumber(country.Confirmed)}
+                    </p>
+                  </div>
+                  <div className="bg-white/10 backdrop-blur-sm rounded-lg p-3 text-center">
+                    <p className="text-xs text-white/80 mb-1">Deaths</p>
+                    <p className="text-lg font-bold text-white">
+                      {formatNumber(country.Deaths)}
+                    </p>
+                  </div>
+                  <div className="bg-white/10 backdrop-blur-sm rounded-lg p-3 text-center">
+                    <p className="text-xs text-white/80 mb-1">Recovered</p>
+                    <p className="text-lg font-bold text-white">
+                      {formatNumber(country.Recovered)}
+                    </p>
+                  </div>
+                  <div className="bg-white/10 backdrop-blur-sm rounded-lg p-3 text-center">
+                    <p className="text-xs text-white/80 mb-1">Active</p>
+                    <p className="text-lg font-bold text-white">
+                      {formatNumber(country.Active)}
+                    </p>
+                  </div>
                 </div>
-                <div className="flex items-center gap-2">
-                  <Activity className="h-3 w-3 text-muted-foreground" />
-                  <span className="text-xs text-muted-foreground">
-                    Recovery
-                  </span>
-                  <Badge variant="secondary">
-                    {country.RecoveryRate.toFixed(2)}%
-                  </Badge>
+
+                {/* Population Data */}
+                {country.population_2024 && (
+                  <div className="bg-white/10 backdrop-blur-sm rounded-lg p-3">
+                    <div className="flex items-center justify-center gap-2 mb-1">
+                      <Users className="h-3 w-3 text-white/80" />
+                      <p className="text-xs text-white/80">Population 2024</p>
+                    </div>
+                    <p className="text-sm font-semibold text-white text-center">
+                      {formatNumber(country.population_2024)}
+                    </p>
+                  </div>
+                )}
+
+                {/* Rate Statistics */}
+                <div className="flex items-center justify-between pt-2 border-t border-white/20">
+                  <div className="flex flex-col items-center gap-1">
+                    <div className="flex items-center gap-1">
+                      <TrendingUp className="h-3 w-3 text-white/80" />
+                      <span className="text-xs text-white/80">CFR</span>
+                    </div>
+                    <Badge variant="secondary" className="bg-white/20 text-white border-0">
+                      {country.CFR?.toFixed(2) || "0.00"}%
+                    </Badge>
+                  </div>
+                  <div className="flex flex-col items-center gap-1">
+                    <div className="flex items-center gap-1">
+                      <Activity className="h-3 w-3 text-white/80" />
+                      <span className="text-xs text-white/80">Recovery</span>
+                    </div>
+                    <Badge variant="secondary" className="bg-white/20 text-white border-0">
+                      {country.RecoveryRate?.toFixed(2) || "0.00"}%
+                    </Badge>
+                  </div>
                 </div>
-              </div>
-            </CardContent>
+
+                {/* Region Info */}
+                {(country.region || country.alpha2) && (
+                  <div className="flex items-center justify-between text-xs text-white/70">
+                    <span>{country.region || "Unknown"}</span>
+                    <span>{country.alpha2 || ""}</span>
+                  </div>
+                )}
+              </CardContent>
+            </div>
           </Card>
         ))}
       </div>
