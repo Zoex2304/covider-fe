@@ -1,0 +1,166 @@
+npm install -D @types/node
+```
+
+---
+
+## **Phase 2: Proposed Folder Architecture**
+
+Based on your SRP philosophy and professional coding standards, here's my proposed architecture:
+```
+covid-dashboard/
+├── public/
+│   └── favicon.ico
+│
+├── src/
+│   ├── app/
+│   │   ├── App.tsx                      # Root component with providers
+│   │   ├── Router.tsx                   # Route configuration
+│   │   └── providers/
+│   │       ├── ThemeProvider.tsx        # Dark/Light/System theme logic
+│   │       ├── QueryProvider.tsx        # React Query setup
+│   │       └── AppProviders.tsx         # Composed provider wrapper
+│   │
+│   ├── features/
+│   │   ├── dashboard/
+│   │   │   ├── components/
+│   │   │   │   ├── DashboardLayout.tsx
+│   │   │   │   ├── KPICard.tsx
+│   │   │   │   ├── StatsSummary.tsx
+│   │   │   │   └── DashboardChartView.tsx
+│   │   │   ├── hooks/
+│   │   │   │   └── useDashboardData.ts
+│   │   │   └── DashboardPage.tsx
+│   │   │
+│   │   ├── analytics/
+│   │   │   ├── components/
+│   │   │   │   ├── TimeSeriesChart.tsx
+│   │   │   │   ├── GeographicalChart.tsx
+│   │   │   │   ├── PredictionChart.tsx
+│   │   │   │   ├── ComparisonChart.tsx
+│   │   │   │   └── ChartSwitcher.tsx      # Single large chart at a time
+│   │   │   ├── hooks/
+│   │   │   │   ├── useTimeSeriesData.ts
+│   │   │   │   ├── useGeographicalData.ts
+│   │   │   │   └── usePredictions.ts
+│   │   │   └── AnalyticsPage.tsx
+│   │   │
+│   │   ├── data-tables/
+│   │   │   ├── components/
+│   │   │   │   ├── ProcessedDataTable.tsx
+│   │   │   │   ├── RawDataTable.tsx
+│   │   │   │   ├── DataTableToolbar.tsx   # Search, filter, sort controls
+│   │   │   │   ├── DataTablePagination.tsx
+│   │   │   │   └── DataTableColumns.tsx   # Column definitions
+│   │   │   ├── hooks/
+│   │   │   │   ├── useTableData.ts
+│   │   │   │   └── useTableFilters.ts
+│   │   │   └── DataTablesPage.tsx
+│   │   │
+│   │   ├── countries/
+│   │   │   ├── components/
+│   │   │   │   ├── CountryList.tsx
+│   │   │   │   ├── CountryDetailModal.tsx
+│   │   │   │   └── CountryComparison.tsx
+│   │   │   ├── hooks/
+│   │   │   │   └── useCountryData.ts
+│   │   │   └── CountriesPage.tsx
+│   │   │
+│   │   └── reports/
+│   │       ├── components/
+│   │       │   ├── ImageModal.tsx         # Display backend PNG images
+│   │       │   ├── ReportGallery.tsx
+│   │       │   └── DownloadButton.tsx
+│   │       ├── hooks/
+│   │       │   └── useReportImages.ts
+│   │       └── ReportsPage.tsx
+│   │
+│   ├── components/
+│   │   ├── layout/
+│   │   │   ├── Sidebar.tsx                # Main navigation sidebar
+│   │   │   ├── Navbar.tsx                 # Top navbar with theme switcher
+│   │   │   ├── MainLayout.tsx             # Combines sidebar + navbar + content
+│   │   │   └── PageHeader.tsx             # Reusable page title component
+│   │   │
+│   │   ├── charts/
+│   │   │   ├── LineChart.tsx              # Recharts wrapper
+│   │   │   ├── BarChart.tsx
+│   │   │   ├── PieChart.tsx
+│   │   │   ├── AreaChart.tsx
+│   │   │   └── ChartContainer.tsx         # Common chart wrapper with loading
+│   │   │
+│   │   ├── modals/
+│   │   │   ├── BaseModal.tsx              # Reusable modal wrapper
+│   │   │   ├── ConfirmationModal.tsx
+│   │   │   └── InfoModal.tsx
+│   │   │
+│   │   ├── feedback/
+│   │   │   ├── LoadingSpinner.tsx         # Instagram-style spinner
+│   │   │   ├── ErrorBoundary.tsx
+│   │   │   ├── ErrorAlert.tsx
+│   │   │   ├── EmptyState.tsx
+│   │   │   └── SkeletonLoader.tsx
+│   │   │
+│   │   └── ui/                            # shadcn/ui components (auto-generated)
+│   │       ├── button.tsx
+│   │       ├── card.tsx
+│   │       ├── dialog.tsx
+│   │       └── ... (other shadcn components)
+│   │
+│   ├── services/
+│   │   ├── api/
+│   │   │   ├── client.ts                  # Axios instance with interceptors
+│   │   │   ├── endpoints.ts               # API endpoint constants
+│   │   │   └── types.ts                   # API response types
+│   │   │
+│   │   └── queries/
+│   │       ├── dashboardQueries.ts        # React Query hooks for dashboard
+│   │       ├── analyticsQueries.ts
+│   │       ├── dataTableQueries.ts
+│   │       └── countryQueries.ts
+│   │
+│   ├── stores/
+│   │   ├── themeStore.ts                  # Zustand store for theme
+│   │   ├── filterStore.ts                 # Global filter state
+│   │   └── modalStore.ts                  # Modal state management
+│   │
+│   ├── hooks/
+│   │   ├── useTheme.ts                    # Theme hook (dark/light/system)
+│   │   ├── useMediaQuery.ts               # Responsive breakpoints
+│   │   ├── useDebounce.ts
+│   │   └── useLocalStorage.ts
+│   │
+│   ├── utils/
+│   │   ├── cn.ts                          # Tailwind merge utility
+│   │   ├── formatters.ts                  # Number, date formatters
+│   │   ├── validators.ts                  # Data validation helpers
+│   │   └── constants.ts                   # App-wide constants
+│   │
+│   ├── types/
+│   │   ├── dashboard.types.ts
+│   │   ├── analytics.types.ts
+│   │   ├── table.types.ts
+│   │   └── index.ts                       # Barrel export
+│   │
+│   ├── styles/
+│   │   ├── globals.css                    # Global styles + Tailwind imports
+│   │   └── themes.css                     # Grok-inspired theme variables
+│   │
+│   ├── config/
+│   │   ├── api.config.ts                  # API base URL, timeout, etc.
+│   │   └── chart.config.ts                # Default chart options
+│   │
+│   ├── main.tsx                           # Entry point
+│   └── vite-env.d.ts
+│
+├── .env.example                           # Example environment variables
+├── .env                                   # Local environment (git-ignored)
+├── .gitignore
+├── index.html
+├── package.json
+├── tsconfig.json
+├── tsconfig.node.json
+├── vite.config.ts
+├── tailwind.config.js
+├── postcss.config.js
+├── components.json                        # shadcn/ui config
+└── README.md

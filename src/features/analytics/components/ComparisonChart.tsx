@@ -1,35 +1,32 @@
 // ============================================================================
-// FILE: src/features/analytics/components/ComparisonChart.tsx (UPDATED)
+// FILE: src/features/analytics/components/ComparisonChart.tsx (REFACTORED)
 // ============================================================================
 import { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
-import { apiClient } from '@/services/api/client';
-import { API_ENDPOINTS } from '@/services/api/endpoints';
-import { useCountriesList } from '@/services/queries/dataTableQueries';
 import ChartContainer from '@/components/charts/ChartContainer';
+import { useCountriesList } from '@/services/queries/dataTableQueries';
+import { useCountryComparison } from '../hooks/useCountryComparison';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { X, Plus } from 'lucide-react';
-import LineChart from '@/components/charts/LineChart';
+import {
+  BarChart as RechartsBarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend,
+  ResponsiveContainer,
+} from 'recharts';
 
 export default function ComparisonChart() {
-  const [selectedCountries, setSelectedCountries] = useState<string[]>(['US', 'India']);
+  const [selectedCountries, setSelectedCountries] = useState<string[]>(['US', 'India', 'Albania']);
   const [currentSelection, setCurrentSelection] = useState('');
-  const [metric, setMetric] = useState('Confirmed');
+  const [metric, setMetric] = useState<'Confirmed' | 'Deaths' | 'Recovered' | 'Active'>('Confirmed');
 
   const { data: countriesData } = useCountriesList();
-
-  const { data, isLoading, error, refetch } = useQuery({
-    queryKey: ['comparison', selectedCountries, metric],
-    queryFn: async () => {
-      const { data } = await apiClient.get(API_ENDPOINTS.COMPARE_COUNTRIES, {
-        params: { countries: selectedCountries }
-      });
-      return data;
-    },
-    enabled: selectedCountries.length > 0,
-  });
+  const { data, isLoading, error, refetch } = useCountryComparison(selectedCountries, metric);
 
   const handleAddCountry = () => {
     if (currentSelection && !selectedCountries.includes(currentSelection)) {
@@ -43,17 +40,28 @@ export default function ComparisonChart() {
   };
 
   const countries = countriesData?.countries || [];
+  const chartData = data?.chartData || [];
+  const snapshotDate = data?.snapshotDate;
+
+  // DEBUG: Log data
+  console.log('🔍 ComparisonChart Debug:', {
+    selectedCountries,
+    metric,
+    apiData: data,
+    chartData,
+    chartDataLength: chartData.length
+  });
 
   return (
     <ChartContainer
       title="Country Comparison"
-      description="Compare COVID-19 trends across multiple countries"
+      description={`Compare ${metric} cases across countries (snapshot data)`}
       isLoading={isLoading}
       error={error?.message}
       onRetry={refetch}
       actions={
         <div className="flex items-center gap-2">
-          <Select value={metric} onValueChange={setMetric}>
+          <Select value={metric} onValueChange={(v) => setMetric(v as typeof metric)}>
             <SelectTrigger className="w-[140px]">
               <SelectValue />
             </SelectTrigger>
@@ -113,21 +121,65 @@ export default function ComparisonChart() {
           </div>
         )}
 
-        {/* Chart */}
-        {data && (
-          <LineChart
-            data={data.data}
-            lines={selectedCountries.map((country, idx) => ({
-              dataKey: `${country}_${metric}`,
-              name: country,
-              color: `hsl(${(idx * 360) / selectedCountries.length}, 70%, 50%)`
-            }))}
-            xAxisKey="Date"
-            height={400}
-          />
+        {/* Bar Chart */}
+        {chartData.length > 0 ? (
+          <div className="mt-4">
+            <ResponsiveContainer width="100%" height={400}>
+              <RechartsBarChart data={chartData}>
+                <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                <XAxis 
+                  dataKey="country" 
+                  className="text-xs"
+                  tick={{ fill: 'currentColor' }}
+                />
+                <YAxis 
+                  className="text-xs"
+                  tick={{ fill: 'currentColor' }}
+                  tickFormatter={(value) => {
+                    if (typeof value === 'number') {
+                      return value.toLocaleString();
+                    }
+                    return String(value);
+                  }}
+                />
+                <Tooltip 
+                  formatter={(value: number) => value.toLocaleString()}
+                  contentStyle={{ 
+                    backgroundColor: 'hsl(var(--background))',
+                    border: '1px solid hsl(var(--border))',
+                    borderRadius: '6px'
+                  }}
+                />
+                <Legend />
+                <Bar 
+                  dataKey="value" 
+                  name={metric}
+                  fill="hsl(var(--primary))" 
+                  radius={[8, 8, 0, 0]}
+                />
+              </RechartsBarChart>
+            </ResponsiveContainer>
+          </div>
+        ) : (
+          <div className="flex items-center justify-center h-[400px] text-muted-foreground">
+            {isLoading ? 'Loading...' : 'No data to display'}
+          </div>
+        )}
+
+        {/* Empty State */}
+        {!isLoading && chartData.length === 0 && selectedCountries.length > 0 && (
+          <div className="flex items-center justify-center h-[400px] text-muted-foreground">
+            No data available for selected countries
+          </div>
+        )}
+
+        {/* Data Date Info */}
+        {snapshotDate && (
+          <p className="text-xs text-muted-foreground text-center">
+            Data as of: {new Date(snapshotDate).toLocaleDateString()}
+          </p>
         )}
       </div>
     </ChartContainer>
   );
 }
-

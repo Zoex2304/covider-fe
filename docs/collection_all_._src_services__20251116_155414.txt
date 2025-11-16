@@ -1,0 +1,405 @@
+﻿================================================================================
+                        CODE COLLECTION REPORT
+================================================================================
+Generated Time    : 2025-11-16 15:54:14
+Technology Stack  : all
+Target Path       : .\src\services\
+Config Bypass     : False
+Total Files       : 8
+Output Location   : D:\covider-fe\docs\collection_all_._src_services__20251116_155414.txt
+================================================================================
+================================================================================
+FILE: D:\covider-fe\src\services\api\client.ts
+RELATIVE PATH: src\services\api\client.ts
+================================================================================
+// ============================================================================
+// FILE: src/services/api/client.ts (ENHANCED)
+// ============================================================================
+import axios, { AxiosError } from 'axios';
+import { getErrorMessage } from '@/utils/errorHandling';
+
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
+
+export const apiClient = axios.create({
+  baseURL: API_BASE_URL,
+  timeout: 30000,
+  headers: {
+    'Content-Type': 'application/json',
+  },
+});
+
+// Request interceptor
+apiClient.interceptors.request.use(
+  (config) => {
+    return config;
+  },
+  (error) => {
+    return Promise.reject(error);
+  }
+);
+
+// Response interceptor with enhanced error handling
+apiClient.interceptors.response.use(
+  (response) => response,
+  (error: AxiosError) => {
+    if (error.response) {
+      console.error('API Error:', {
+        status: error.response.status,
+        data: error.response.data,
+        url: error.config?.url,
+      });
+    } else if (error.request) {
+      console.error('Network Error:', {
+        message: error.message,
+        url: error.config?.url,
+      });
+    } else {
+      console.error('Error:', error.message);
+    }
+    
+    const message = getErrorMessage(error);
+    return Promise.reject(new Error(message));
+  }
+);
+
+
+================================================================================
+FILE: D:\covider-fe\src\services\api\endpoints.ts
+RELATIVE PATH: src\services\api\endpoints.ts
+================================================================================
+// ============================================================================
+// FILE: src/services/api/endpoints.ts (COMPLETE VERSION)
+// ============================================================================
+export const API_ENDPOINTS = {
+  // Dashboard
+  DASHBOARD_SUMMARY: '/api/v1/dashboard/summary',
+  DASHBOARD_KPIS: '/api/v1/dashboard/kpis',
+  DASHBOARD_RECENT_UPDATES: '/api/v1/dashboard/recent-updates',
+  
+  // Time Series
+  TIME_SERIES_GLOBAL: '/api/v1/time-series/global',
+  TIME_SERIES_COUNTRY: (country: string) => `/api/v1/time-series/country/${encodeURIComponent(country)}`,
+  TIME_SERIES_DAILY_STATISTICS: '/api/v1/time-series/daily-statistics',
+  TIME_SERIES_DATE_RANGE: '/api/v1/time-series/date-range',
+  
+  // Geographical
+  COUNTRIES_SUMMARY: '/api/v1/geographical/countries-summary',
+  TOP_COUNTRIES: '/api/v1/geographical/top-countries',
+  COUNTRY_DETAILS: (country: string) => `/api/v1/geographical/country/${encodeURIComponent(country)}/details`,
+  PROVINCES: (country: string) => `/api/v1/geographical/provinces/${encodeURIComponent(country)}`,
+  COMPARE_COUNTRIES: '/api/v1/geographical/compare-countries',
+  
+  // Statistics
+  GLOBAL_METRICS: '/api/v1/statistics/global-metrics',
+  MORTALITY_RATES: '/api/v1/statistics/mortality-rates',
+  RECOVERY_RATES: '/api/v1/statistics/recovery-rates',
+  CORRELATION_MATRIX: '/api/v1/statistics/correlation-matrix',
+  DISTRIBUTION_STATS: '/api/v1/statistics/distribution-stats',
+  OUTLIERS: '/api/v1/statistics/outliers',
+  
+  // Data Tables
+  ALL_DATA: '/api/v1/tables/all-data',
+  COUNTRIES_LIST: '/api/v1/tables/countries-list',
+  DAILY_SUMMARY: '/api/v1/tables/daily-summary',
+  COUNTRY_TIMELINE: (country: string) => `/api/v1/tables/country-timeline/${encodeURIComponent(country)}`,
+  
+  // Visualizations
+  TIME_SERIES_CHART: '/api/v1/visualizations/time-series-chart',
+  GEOGRAPHICAL_CHART: '/api/v1/visualizations/geographical-chart',
+  DASHBOARD_CHART: '/api/v1/visualizations/dashboard',
+  TOP_COUNTRIES_CHART: '/api/v1/visualizations/top-countries-chart',
+  COMPARISON_CHART: '/api/v1/visualizations/comparison-chart',
+  CORRELATION_HEATMAP: '/api/v1/visualizations/correlation-heatmap',
+  
+  // Predictions
+  COUNTRY_PREDICTION: (country: string) => `/api/v1/predictions/country/${encodeURIComponent(country)}`,
+  
+  // Comparisons
+  COMPARISON_TIMELINE_CHART: '/api/v1/comparisons/timeline-chart',
+  COMPARISON_COMPOSITION_CHART: '/api/v1/comparisons/composition-chart',
+  
+  // Advanced Analytics
+  ANOMALIES: '/api/v1/advanced-analytics/anomalies',
+  EPIDEMIC_WAVES: (country: string) => `/api/v1/advanced-analytics/epidemic-waves/${encodeURIComponent(country)}`,
+  REPRODUCTION_NUMBER: (country: string) => `/api/v1/advanced-analytics/reproduction-number/${encodeURIComponent(country)}`,
+  CLUSTERING: '/api/v1/advanced-analytics/clustering',
+  CORRELATION_NETWORK: '/api/v1/advanced-analytics/correlation-network',
+  LAG_CORRELATION: '/api/v1/advanced-analytics/lag-correlation',
+  RESILIENCE: '/api/v1/advanced-analytics/resilience',
+} as const;
+
+
+================================================================================
+FILE: D:\covider-fe\src\services\api\types.ts
+RELATIVE PATH: src\services\api\types.ts
+================================================================================
+// ============================================================================
+// FILE: src/services/api/types.ts
+// ============================================================================
+export interface ApiResponse<T> {
+  status: string;
+  data: T;
+  message?: string;
+}
+
+export interface PaginationMeta {
+  page: number;
+  page_size: number;
+  total_records: number;
+  total_pages: number;
+}
+
+export interface PaginatedResponse<T> {
+  status: string;
+  data: T[];
+  pagination: PaginationMeta;
+}
+
+export interface ApiError {
+  message: string;
+  code?: string;
+  details?: Record<string, unknown>;
+}
+
+================================================================================
+FILE: D:\covider-fe\src\services\queries\advancedAnalyticsQueries.ts
+RELATIVE PATH: src\services\queries\advancedAnalyticsQueries.ts
+================================================================================
+// ============================================================================
+// FILE: src/services/queries/advancedAnalyticsQueries.ts
+// ============================================================================
+import { useQuery } from '@tanstack/react-query';
+import { apiClient } from '../api/client';
+import { API_ENDPOINTS } from '../api/endpoints';
+
+export const useAnomalies = (metric: string = 'Confirmed') => {
+  return useQuery({
+    queryKey: ['anomalies', metric],
+    queryFn: async () => {
+      const { data } = await apiClient.get(API_ENDPOINTS.ANOMALIES, {
+        params: { metric, format: 'json' }
+      });
+      return data;
+    },
+  });
+};
+
+export const useEpidemicWaves = (country: string) => {
+  return useQuery({
+    queryKey: ['epidemic-waves', country],
+    queryFn: async () => {
+      const { data } = await apiClient.get(
+        API_ENDPOINTS.EPIDEMIC_WAVES(country),
+        { params: { format: 'json' } }
+      );
+      return data;
+    },
+    enabled: !!country,
+  });
+};
+
+export const useReproductionNumber = (country: string) => {
+  return useQuery({
+    queryKey: ['reproduction-number', country],
+    queryFn: async () => {
+      const { data } = await apiClient.get(
+        API_ENDPOINTS.REPRODUCTION_NUMBER(country),
+        { params: { format: 'json' } }
+      );
+      return data;
+    },
+    enabled: !!country,
+  });
+};
+
+export const useClustering = (nClusters: number = 5) => {
+  return useQuery({
+    queryKey: ['clustering', nClusters],
+    queryFn: async () => {
+      const { data } = await apiClient.get(API_ENDPOINTS.CLUSTERING, {
+        params: { n_clusters: nClusters, format: 'json' }
+      });
+      return data;
+    },
+  });
+};
+
+export const useResilience = (topN: number = 20) => {
+  return useQuery({
+    queryKey: ['resilience', topN],
+    queryFn: async () => {
+      const { data } = await apiClient.get(API_ENDPOINTS.RESILIENCE, {
+        params: { top_n: topN, format: 'json' }
+      });
+      return data;
+    },
+  });
+};
+
+================================================================================
+FILE: D:\covider-fe\src\services\queries\analyticsQueries.ts
+RELATIVE PATH: src\services\queries\analyticsQueries.ts
+================================================================================
+// ============================================================================
+// FILE: src/services/queries/analyticsQueries.ts
+// ============================================================================
+import { useQuery } from '@tanstack/react-query';
+import { apiClient } from '../api/client';
+import { API_ENDPOINTS } from '../api/endpoints';
+
+export const useTimeSeriesGlobal = () => {
+  return useQuery({
+    queryKey: ['timeSeries', 'global'],
+    queryFn: async () => {
+      const { data } = await apiClient.get(API_ENDPOINTS.TIME_SERIES_GLOBAL);
+      return data;
+    },
+  });
+};
+
+export const useTimeSeriesCountry = (country: string) => {
+  return useQuery({
+    queryKey: ['timeSeries', 'country', country],
+    queryFn: async () => {
+      const { data } = await apiClient.get(API_ENDPOINTS.TIME_SERIES_COUNTRY(country));
+      return data;
+    },
+    enabled: !!country,
+  });
+};
+
+export const useCountryPrediction = (country: string, days: number = 7) => {
+  return useQuery({
+    queryKey: ['prediction', country, days],
+    queryFn: async () => {
+      const { data } = await apiClient.get(
+        API_ENDPOINTS.COUNTRY_PREDICTION(country),
+        { params: { days } }
+      );
+      return data;
+    },
+    enabled: !!country,
+  });
+};
+
+
+================================================================================
+FILE: D:\covider-fe\src\services\queries\countryQueries.ts
+RELATIVE PATH: src\services\queries\countryQueries.ts
+================================================================================
+// ============================================================================
+// FILE: src/services/queries/countryQueries.ts
+// ============================================================================
+import { useQuery } from '@tanstack/react-query';
+import { apiClient } from '../api/client';
+import { API_ENDPOINTS } from '../api/endpoints';
+
+export const useCountriesSummary = () => {
+  return useQuery({
+    queryKey: ['countries', 'summary'],
+    queryFn: async () => {
+      const { data } = await apiClient.get(API_ENDPOINTS.COUNTRIES_SUMMARY);
+      return data;
+    },
+  });
+};
+
+export const useTopCountries = (metric: string = 'Confirmed', limit: number = 20) => {
+  return useQuery({
+    queryKey: ['countries', 'top', metric, limit],
+    queryFn: async () => {
+      const { data } = await apiClient.get(API_ENDPOINTS.TOP_COUNTRIES, {
+        params: { metric, limit },
+      });
+      return data;
+    },
+  });
+};
+
+export const useCountryDetails = (country: string) => {
+  return useQuery({
+    queryKey: ['country', 'details', country],
+    queryFn: async () => {
+      const { data } = await apiClient.get(API_ENDPOINTS.COUNTRY_DETAILS(country));
+      return data;
+    },
+    enabled: !!country,
+  });
+};
+
+
+
+
+
+
+
+================================================================================
+FILE: D:\covider-fe\src\services\queries\dashboardQueries.ts
+RELATIVE PATH: src\services\queries\dashboardQueries.ts
+================================================================================
+// ============================================================================
+// FILE: src/services/queries/dashboardQueries.ts
+// ============================================================================
+import { useQuery } from "@tanstack/react-query";
+import { apiClient } from "../api/client";
+import { API_ENDPOINTS } from "../api/endpoints";
+
+export const useDashboardSummary = () => {
+  return useQuery({
+    queryKey: ["dashboard", "summary"],
+    queryFn: async () => {
+      const { data } = await apiClient.get(API_ENDPOINTS.DASHBOARD_SUMMARY);
+      return data;
+    },
+  });
+};
+
+export const useDashboardKPIs = () => {
+  return useQuery({
+    queryKey: ["dashboard", "kpis"],
+    queryFn: async () => {
+      const { data } = await apiClient.get(API_ENDPOINTS.DASHBOARD_KPIS);
+      return data;
+    },
+  });
+};
+
+================================================================================
+FILE: D:\covider-fe\src\services\queries\dataTableQueries.ts
+RELATIVE PATH: src\services\queries\dataTableQueries.ts
+================================================================================
+// ============================================================================
+// FILE: src/services/queries/dataTableQueries.ts
+// ============================================================================
+import { useQuery } from "@tanstack/react-query";
+import { apiClient } from "../api/client";
+import { API_ENDPOINTS } from "../api/endpoints";
+
+interface TableParams {
+  page?: number;
+  page_size?: number;
+  sort_by?: string;
+  sort_order?: "asc" | "desc";
+}
+
+export const useAllData = (params: TableParams = {}) => {
+  return useQuery({
+    queryKey: ["allData", params],
+    queryFn: async () => {
+      const { data } = await apiClient.get(API_ENDPOINTS.ALL_DATA, { params });
+      return data;
+    },
+  });
+};
+
+export const useCountriesList = () => {
+  return useQuery({
+    queryKey: ["countriesList"],
+    queryFn: async () => {
+      const { data } = await apiClient.get(API_ENDPOINTS.COUNTRIES_LIST);
+      return data;
+    },
+  });
+};
+
+

@@ -1,0 +1,737 @@
+﻿================================================================================
+                        CODE COLLECTION REPORT
+================================================================================
+Generated Time    : 2025-11-16 15:56:03
+Technology Stack  : all
+Target Path       : .\src\features\analytics
+Config Bypass     : False
+Total Files       : 9
+Output Location   : D:\covider-fe\docs\collection_all_._src_features_analytics_20251116_155603.txt
+================================================================================
+================================================================================
+FILE: D:\covider-fe\src\features\analytics\AnalyticsPage.tsx
+RELATIVE PATH: src\features\analytics\AnalyticsPage.tsx
+================================================================================
+// ============================================================================
+// FILE: src/features/analytics/AnalyticsPage.tsx
+// ============================================================================
+import { useState } from "react";
+import PageHeader from "@/components/layout/PageHeader";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import TimeSeriesChart from "./components/TimeSeriesChart";
+import GeographicalChart from "./components/GeographicalChart";
+import PredictionChart from "./components/PredictionChart";
+import ComparisonChart from "./components/ComparisonChart";
+
+export default function AnalyticsPage() {
+  const [activeChart, setActiveChart] = useState("timeseries");
+
+  return (
+    <div className="space-y-6">
+      <PageHeader
+        title="Analytics"
+        description="Visualize COVID-19 trends with interactive charts"
+      />
+
+      <Tabs value={activeChart} onValueChange={setActiveChart}>
+        <TabsList className="grid w-full grid-cols-4">
+          <TabsTrigger value="timeseries">Time Series</TabsTrigger>
+          <TabsTrigger value="geographical">Geographical</TabsTrigger>
+          <TabsTrigger value="prediction">Predictions</TabsTrigger>
+          <TabsTrigger value="comparison">Comparison</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="timeseries" className="mt-6">
+          <TimeSeriesChart />
+        </TabsContent>
+
+        <TabsContent value="geographical" className="mt-6">
+          <GeographicalChart />
+        </TabsContent>
+
+        <TabsContent value="prediction" className="mt-6">
+          <PredictionChart />
+        </TabsContent>
+
+        <TabsContent value="comparison" className="mt-6">
+          <ComparisonChart />
+        </TabsContent>
+      </Tabs>
+    </div>
+  );
+}
+
+================================================================================
+FILE: D:\covider-fe\src\features\analytics\components\ChartSwitcher.tsx
+RELATIVE PATH: src\features\analytics\components\ChartSwitcher.tsx
+================================================================================
+
+================================================================================
+FILE: D:\covider-fe\src\features\analytics\components\ComparisonChart.tsx
+RELATIVE PATH: src\features\analytics\components\ComparisonChart.tsx
+================================================================================
+// ============================================================================
+// FILE: src/features/analytics/components/ComparisonChart.tsx (FIXED)
+// ============================================================================
+import { useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { apiClient } from '@/services/api/client';
+import { API_ENDPOINTS } from '@/services/api/endpoints';
+import { useCountriesList } from '@/services/queries/dataTableQueries';
+import ChartContainer from '@/components/charts/ChartContainer';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { X, Plus } from 'lucide-react';
+import LineChart from '@/components/charts/LineChart';
+
+// ============================================================================
+// DOMAIN TYPES
+// ============================================================================
+interface CountryComparisonData {
+  Country: string;
+  Confirmed: number;
+  Deaths: number;
+  Recovered: number;
+  Active: number;
+  CFR: number;
+  RecoveryRate: number;
+  Date: string;
+}
+
+interface ComparisonApiResponse {
+  status: string;
+  countries: string[];
+  data: CountryComparisonData[];
+}
+
+interface TransformedChartData {
+  Date: string;
+  [key: string]: string | number; // Dynamic keys like "India_Confirmed", "US_Deaths", etc.
+}
+
+// ============================================================================
+// DATA TRANSFORMATION SERVICE
+// Responsibility: Transform API response into LineChart-compatible format
+// ============================================================================
+class ComparisonDataTransformer {
+  transform(apiData: CountryComparisonData[], metric: string): TransformedChartData[] {
+    // Group by date (in this case, single date, but structure supports multi-date)
+    const dateGroups = this.groupByDate(apiData);
+    
+    return Object.entries(dateGroups).map(([date, countries]) => {
+      const chartPoint: TransformedChartData = { Date: date };
+      
+      countries.forEach(countryData => {
+        const key = `${countryData.Country}_${metric}`;
+        chartPoint[key] = countryData[metric as keyof CountryComparisonData] as number;
+      });
+      
+      return chartPoint;
+    });
+  }
+
+  private groupByDate(data: CountryComparisonData[]): Record<string, CountryComparisonData[]> {
+    return data.reduce((acc, item) => {
+      if (!acc[item.Date]) {
+        acc[item.Date] = [];
+      }
+      acc[item.Date].push(item);
+      return acc;
+    }, {} as Record<string, CountryComparisonData[]>);
+  }
+}
+
+// ============================================================================
+// COLOR GENERATION SERVICE
+// Responsibility: Generate distinct colors for chart lines
+// ============================================================================
+class ChartColorGenerator {
+  generateColors(count: number): string[] {
+    return Array.from({ length: count }, (_, idx) => 
+      `hsl(${(idx * 360) / count}, 70%, 50%)`
+    );
+  }
+}
+
+// ============================================================================
+// MAIN COMPONENT
+// ============================================================================
+export default function ComparisonChart() {
+  const [selectedCountries, setSelectedCountries] = useState<string[]>(['US', 'India']);
+  const [currentSelection, setCurrentSelection] = useState('');
+  const [metric, setMetric] = useState('Confirmed');
+
+  // Services (could be injected via DI in larger apps)
+  const transformer = new ComparisonDataTransformer();
+  const colorGenerator = new ChartColorGenerator();
+
+  const { data: countriesData } = useCountriesList();
+
+  const { data, isLoading, error, refetch } = useQuery({
+    queryKey: ['comparison', selectedCountries, metric],
+    queryFn: async () => {
+      const queryString = selectedCountries.map(c => `countries=${c}`).join('&');
+      const { data } = await apiClient.get<ComparisonApiResponse>(
+        `${API_ENDPOINTS.COMPARE_COUNTRIES}?${queryString}`
+      );
+      return data;
+    },
+    enabled: selectedCountries.length > 0,
+  });
+
+  const handleAddCountry = () => {
+    if (currentSelection && !selectedCountries.includes(currentSelection)) {
+      setSelectedCountries([...selectedCountries, currentSelection]);
+      setCurrentSelection('');
+    }
+  };
+
+  const handleRemoveCountry = (country: string) => {
+    setSelectedCountries(selectedCountries.filter(c => c !== country));
+  };
+
+  // Transform data for chart consumption
+  const chartData = data?.data ? transformer.transform(data.data, metric) : [];
+  const lineColors = colorGenerator.generateColors(selectedCountries.length);
+  const chartLines = selectedCountries.map((country, idx) => ({
+    dataKey: `${country}_${metric}`,
+    name: country,
+    color: lineColors[idx]
+  }));
+
+  const countries = countriesData?.countries || [];
+
+  return (
+    <ChartContainer
+      title="Country Comparison"
+      description="Compare COVID-19 trends across multiple countries"
+      isLoading={isLoading}
+      error={error?.message}
+      onRetry={refetch}
+      actions={
+        <div className="flex items-center gap-2">
+          <Select value={metric} onValueChange={setMetric}>
+            <SelectTrigger className="w-[140px]">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="Confirmed">Confirmed</SelectItem>
+              <SelectItem value="Deaths">Deaths</SelectItem>
+              <SelectItem value="Recovered">Recovered</SelectItem>
+              <SelectItem value="Active">Active</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+      }
+    >
+      <div className="space-y-4">
+        {/* Country Selection */}
+        <div className="flex gap-2">
+          <Select value={currentSelection} onValueChange={setCurrentSelection}>
+            <SelectTrigger className="flex-1">
+              <SelectValue placeholder="Add country to compare" />
+            </SelectTrigger>
+            <SelectContent>
+              {countries
+                .filter((c: string) => !selectedCountries.includes(c))
+                .slice(0, 50)
+                .map((country: string) => (
+                  <SelectItem key={country} value={country}>
+                    {country}
+                  </SelectItem>
+                ))}
+            </SelectContent>
+          </Select>
+          <Button
+            onClick={handleAddCountry}
+            disabled={!currentSelection}
+            size="icon"
+          >
+            <Plus className="h-4 w-4" />
+          </Button>
+        </div>
+
+        {/* Selected Countries */}
+        {selectedCountries.length > 0 && (
+          <div className="flex flex-wrap gap-2">
+            {selectedCountries.map((country) => (
+              <Badge key={country} variant="secondary" className="pl-3 pr-1 py-1">
+                {country}
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-5 w-5 ml-1"
+                  onClick={() => handleRemoveCountry(country)}
+                >
+                  <X className="h-3 w-3" />
+                </Button>
+              </Badge>
+            ))}
+          </div>
+        )}
+
+        {/* Chart */}
+        {chartData.length > 0 && (
+          <LineChart
+            data={chartData}
+            lines={chartLines}
+            xAxisKey="Date"
+            height={400}
+          />
+        )}
+
+        {/* Empty State */}
+        {!isLoading && chartData.length === 0 && selectedCountries.length > 0 && (
+          <div className="flex items-center justify-center h-[400px] text-muted-foreground">
+            No data available for selected countries
+          </div>
+        )}
+      </div>
+    </ChartContainer>
+  );
+}
+================================================================================
+FILE: D:\covider-fe\src\features\analytics\components\GeographicalChart.tsx
+RELATIVE PATH: src\features\analytics\components\GeographicalChart.tsx
+================================================================================
+// ============================================================================
+// FILE: src/features/analytics/components/GeographicalChart.tsx
+// ============================================================================
+import { useState } from 'react';
+import ChartContainer from '@/components/charts/ChartContainer';
+import { useTopCountries } from '@/services/queries/countryQueries';
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend,
+  ResponsiveContainer,
+} from 'recharts';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+
+export default function GeographicalChart() {
+  const [metric, setMetric] = useState('Confirmed');
+  const [limit, setLimit] = useState(20);
+  const { data, isLoading, error, refetch } = useTopCountries(metric, limit);
+
+  const chartData = data?.data || [];
+
+  return (
+    <ChartContainer
+      title="Top Countries by Cases"
+      description="Countries with highest COVID-19 impact"
+      isLoading={isLoading}
+      error={error?.message}
+      onRetry={refetch}
+      actions={
+        <div className="flex items-center gap-2">
+          <Select value={metric} onValueChange={setMetric}>
+            <SelectTrigger className="w-[140px]">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="Confirmed">Confirmed</SelectItem>
+              <SelectItem value="Deaths">Deaths</SelectItem>
+              <SelectItem value="Recovered">Recovered</SelectItem>
+              <SelectItem value="Active">Active</SelectItem>
+            </SelectContent>
+          </Select>
+          <Select value={limit.toString()} onValueChange={(v) => setLimit(Number(v))}>
+            <SelectTrigger className="w-[100px]">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="10">Top 10</SelectItem>
+              <SelectItem value="20">Top 20</SelectItem>
+              <SelectItem value="30">Top 30</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+      }
+    >
+      <ResponsiveContainer width="100%" height={500}>
+        <BarChart data={chartData} layout="vertical">
+          <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+          <XAxis type="number" className="text-xs" />
+          <YAxis
+            type="category"
+            dataKey="Country/Region"
+            className="text-xs"
+            width={120}
+          />
+          <Tooltip
+            contentStyle={{
+              backgroundColor: 'hsl(var(--popover))',
+              border: '1px solid hsl(var(--border))',
+              borderRadius: '6px',
+            }}
+          />
+          <Legend />
+          <Bar dataKey={metric} fill="#3b82f6" radius={[0, 4, 4, 0]} />
+        </BarChart>
+      </ResponsiveContainer>
+    </ChartContainer>
+  );
+}
+
+================================================================================
+FILE: D:\covider-fe\src\features\analytics\components\PredictionChart.tsx
+RELATIVE PATH: src\features\analytics\components\PredictionChart.tsx
+================================================================================
+// ============================================================================
+// FILE: src/features/analytics/components/PredictionChart.tsx
+// ============================================================================
+import { useState } from "react";
+import ChartContainer from "@/components/charts/ChartContainer";
+import { useCountryPrediction } from "@/services/queries/analyticsQueries";
+import { useCountriesList } from "@/services/queries/dataTableQueries";
+import {
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend,
+  ResponsiveContainer,
+  ReferenceLine,
+} from "recharts";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Button } from "@/components/ui/button";
+import { TrendingUp } from "lucide-react";
+
+export default function PredictionChart() {
+  const [selectedCountry, setSelectedCountry] = useState("US");
+  const [days, setDays] = useState(7);
+
+  const { data: countriesData } = useCountriesList();
+  const { data, isLoading, error, refetch } = useCountryPrediction(
+    selectedCountry,
+    days
+  );
+
+  const countries = countriesData?.countries || [];
+
+  return (
+    <ChartContainer
+      title="COVID-19 Case Predictions"
+      description="Future case projections based on historical trends"
+      isLoading={isLoading}
+      error={error?.message}
+      onRetry={refetch}
+      actions={
+        <div className="flex items-center gap-2">
+          <Select value={selectedCountry} onValueChange={setSelectedCountry}>
+            <SelectTrigger className="w-[180px]">
+              <SelectValue placeholder="Select country" />
+            </SelectTrigger>
+            <SelectContent>
+              {countries.slice(0, 50).map((country: string) => (
+                <SelectItem key={country} value={country}>
+                  {country}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Select
+            value={days.toString()}
+            onValueChange={(v) => setDays(Number(v))}
+          >
+            <SelectTrigger className="w-[120px]">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="7">7 Days</SelectItem>
+              <SelectItem value="14">14 Days</SelectItem>
+              <SelectItem value="30">30 Days</SelectItem>
+            </SelectContent>
+          </Select>
+          <Button variant="outline" size="sm" onClick={() => refetch()}>
+            <TrendingUp className="mr-2 h-4 w-4" />
+            Refresh
+          </Button>
+        </div>
+      }
+    >
+      <div className="mb-4 p-4 bg-muted rounded-lg">
+        <div className="grid grid-cols-2 gap-4 text-sm">
+          <div>
+            <p className="text-muted-foreground">Last Actual Date</p>
+            <p className="font-semibold">{data?.last_actual_date || "N/A"}</p>
+          </div>
+          <div>
+            <p className="text-muted-foreground">Last Actual Value</p>
+            <p className="font-semibold">
+              {data?.last_actual_value?.toLocaleString() || "N/A"}
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <ResponsiveContainer width="100%" height={400}>
+        <LineChart>
+          <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+          <XAxis dataKey="date" className="text-xs" />
+          <YAxis className="text-xs" />
+          <Tooltip
+            contentStyle={{
+              backgroundColor: "hsl(var(--popover))",
+              border: "1px solid hsl(var(--border))",
+              borderRadius: "6px",
+            }}
+          />
+          <Legend />
+          <ReferenceLine
+            x={data?.last_actual_date}
+            stroke="hsl(var(--muted-foreground))"
+            strokeDasharray="3 3"
+            label="Prediction Start"
+          />
+          <Line
+            type="monotone"
+            dataKey="actual"
+            stroke="#3b82f6"
+            strokeWidth={2}
+            name="Actual"
+            dot={false}
+          />
+          <Line
+            type="monotone"
+            dataKey="predicted"
+            stroke="#f97316"
+            strokeWidth={2}
+            strokeDasharray="5 5"
+            name="Predicted"
+            dot={false}
+          />
+        </LineChart>
+      </ResponsiveContainer>
+    </ChartContainer>
+  );
+}
+
+================================================================================
+FILE: D:\covider-fe\src\features\analytics\components\TimeSeriesChart.tsx
+RELATIVE PATH: src\features\analytics\components\TimeSeriesChart.tsx
+================================================================================
+// ============================================================================
+// FILE: src/features/analytics/components/TimeSeriesChart.tsx
+// ============================================================================
+import { useState } from "react";
+import ChartContainer from "@/components/charts/ChartContainer";
+import { useTimeSeriesGlobal } from "@/services/queries/analyticsQueries";
+import {
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend,
+  ResponsiveContainer,
+} from "recharts";
+import { Button } from "@/components/ui/button";
+import { Download } from "lucide-react";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+
+export default function TimeSeriesChart() {
+  const [metric, setMetric] = useState("all");
+  const { data, isLoading, error, refetch } = useTimeSeriesGlobal();
+
+  const chartData = data?.data || [];
+
+  return (
+    <ChartContainer
+      title="Global Time Series"
+      description="COVID-19 cases over time worldwide"
+      isLoading={isLoading}
+      error={error?.message}
+      onRetry={refetch}
+      actions={
+        <div className="flex items-center gap-2">
+          <Select value={metric} onValueChange={setMetric}>
+            <SelectTrigger className="w-[140px]">
+              <SelectValue placeholder="Select metric" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Metrics</SelectItem>
+              <SelectItem value="confirmed">Confirmed</SelectItem>
+              <SelectItem value="deaths">Deaths</SelectItem>
+              <SelectItem value="recovered">Recovered</SelectItem>
+              <SelectItem value="active">Active</SelectItem>
+            </SelectContent>
+          </Select>
+          <Button variant="outline" size="sm">
+            <Download className="mr-2 h-4 w-4" />
+            Export
+          </Button>
+        </div>
+      }
+    >
+      <ResponsiveContainer width="100%" height={400}>
+        <LineChart data={chartData}>
+          <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+          <XAxis
+            dataKey="ObservationDate"
+            className="text-xs"
+            tickFormatter={(value) =>
+              new Date(value).toLocaleDateString("en-US", {
+                month: "short",
+                day: "numeric",
+              })
+            }
+          />
+          <YAxis className="text-xs" />
+          <Tooltip
+            contentStyle={{
+              backgroundColor: "hsl(var(--popover))",
+              border: "1px solid hsl(var(--border))",
+              borderRadius: "6px",
+            }}
+            labelFormatter={(value) => new Date(value).toLocaleDateString()}
+          />
+          <Legend />
+          {(metric === "all" || metric === "confirmed") && (
+            <Line
+              type="monotone"
+              dataKey="Confirmed"
+              stroke="#3b82f6"
+              strokeWidth={2}
+              dot={false}
+            />
+          )}
+          {(metric === "all" || metric === "deaths") && (
+            <Line
+              type="monotone"
+              dataKey="Deaths"
+              stroke="#ef4444"
+              strokeWidth={2}
+              dot={false}
+            />
+          )}
+          {(metric === "all" || metric === "recovered") && (
+            <Line
+              type="monotone"
+              dataKey="Recovered"
+              stroke="#22c55e"
+              strokeWidth={2}
+              dot={false}
+            />
+          )}
+          {(metric === "all" || metric === "active") && (
+            <Line
+              type="monotone"
+              dataKey="Active"
+              stroke="#f97316"
+              strokeWidth={2}
+              dot={false}
+            />
+          )}
+        </LineChart>
+      </ResponsiveContainer>
+    </ChartContainer>
+  );
+}
+
+================================================================================
+FILE: D:\covider-fe\src\features\analytics\hooks\useGeographicalData.ts
+RELATIVE PATH: src\features\analytics\hooks\useGeographicalData.ts
+================================================================================
+// ============================================================================
+// FILE: src/features/analytics/hooks/useGeographicalData.ts
+// ============================================================================
+import { useQuery } from "@tanstack/react-query";
+import { apiClient } from "@/services/api/client";
+import { API_ENDPOINTS } from "@/services/api/endpoints";
+
+export function useGeographicalData(
+  metric: string = "Confirmed",
+  limit: number = 20
+) {
+  return useQuery({
+    queryKey: ["geographical", metric, limit],
+    queryFn: async () => {
+      const { data } = await apiClient.get(API_ENDPOINTS.TOP_COUNTRIES, {
+        params: { metric, limit },
+      });
+      return data;
+    },
+  });
+}
+
+================================================================================
+FILE: D:\covider-fe\src\features\analytics\hooks\usePredictions.ts
+RELATIVE PATH: src\features\analytics\hooks\usePredictions.ts
+================================================================================
+// ============================================================================
+// FILE: src/features/analytics/hooks/usePredictions.ts
+// ============================================================================
+import { useQuery } from "@tanstack/react-query";
+import { apiClient } from "@/services/api/client";
+import { API_ENDPOINTS } from "@/services/api/endpoints";
+import { PredictionResponse } from "@/types";
+
+export function usePredictions(country: string, days: number = 7) {
+  return useQuery<PredictionResponse>({
+    queryKey: ["predictions", country, days],
+    queryFn: async () => {
+      const { data } = await apiClient.get(
+        API_ENDPOINTS.COUNTRY_PREDICTION(country),
+        { params: { days } }
+      );
+      return data;
+    },
+    enabled: !!country,
+  });
+}
+
+================================================================================
+FILE: D:\covider-fe\src\features\analytics\hooks\useTimeSeriesData.ts
+RELATIVE PATH: src\features\analytics\hooks\useTimeSeriesData.ts
+================================================================================
+// ============================================================================
+// FILE: src/features/analytics/hooks/useTimeSeriesData.ts
+// ============================================================================
+import { useQuery } from "@tanstack/react-query";
+import { apiClient } from "@/services/api/client";
+import { API_ENDPOINTS } from "@/services/api/endpoints";
+import { TimeSeriesData } from "@/types";
+
+export function useTimeSeriesData(country?: string) {
+  const endpoint = country
+    ? API_ENDPOINTS.TIME_SERIES_COUNTRY(country)
+    : API_ENDPOINTS.TIME_SERIES_GLOBAL;
+
+  return useQuery<{ status: string; data: TimeSeriesData[] }>({
+    queryKey: ["timeSeries", country || "global"],
+    queryFn: async () => {
+      const { data } = await apiClient.get(endpoint);
+      return data;
+    },
+    enabled: !country || !!country,
+  });
+}
+
+
